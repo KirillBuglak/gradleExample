@@ -1,0 +1,9 @@
+apply plugin: 'jacoco'
+
+jacocoTestReport {
+    reports {
+        xml.required = true // in /build/reports/jacoco
+        csv.required = false
+        html.outputLocation = layout.buildDirectory.dir("jacocoHTML")
+    }
+}

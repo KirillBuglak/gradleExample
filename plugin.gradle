@@ -1,0 +1,13 @@
+repositories {
+    mavenCentral()
+}
+
+//    dependencies {
+//         'org-parser:org-parser:0.1.27'
+//    }
+
+task 'myPluginTask' {
+    doLast {
+        println 'MyPluginTask'
+    }
+}

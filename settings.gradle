@@ -1,0 +1,11 @@
+pluginManagement{
+    repositories {
+        mavenLocal()
+        maven {
+            url = uri("https://plugins.gradle.org/m2/")
+        }
+    }
+}
+rootProject.name = 'gradleExample'
+include 'core', 'controllers', 'dto'
+//includeFlat 'core', 'controllers', 'dto'

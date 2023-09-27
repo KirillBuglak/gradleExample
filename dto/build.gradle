@@ -1,0 +1,92 @@
+import listeners.MyTestListener
+import org.gradle.api.tasks.testing.logging.TestLogEvent
+
+dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.9.2'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.9.2'
+}
+
+sourceSets { //fixme Could be testSets if we have the right plugin
+    integTest {//fixme doesn't work
+        java.srcDir file('src/integTest/java')
+        compileClasspath = sourceSets.test.output + configurations.testCompileClasspath
+        runtimeClasspath = output + compileClasspath
+
+        resources.srcDir file('src/integTest/resources')
+    }
+//    test{
+//        java{
+//            srcDirs = ['integTest/java']
+//        }
+//    }
+}
+
+tasks.withType(Test) {
+    useJUnitPlatform()
+}
+
+tasks.register("getRootProperty") {
+    doLast{
+        println(takeitFromDTO)
+    }
+}
+
+tasks.register('anounceCheck') {
+    doLast {
+        println("GOING TO CHECK")
+        Thread.sleep(5000)
+    }
+}
+
+check.dependsOn anounceCheck //todo here we are getting into build lifecycle by declaring dependency on standard plugin task
+
+test {
+
+    forkEvery = 5
+    maxParallelForks = Runtime.runtime.availableProcessors()
+
+    exclude '**/*IntegTest.class'
+
+    testLogging {
+        showStandardStreams = true//Additional info output
+        exceptionFormat 'full'//Additional info output
+        events 'started', 'passed', 'skipped', 'failed'//Additional info output
+        TestLogEvent
+    }
+
+    beforeSuite { suite ->
+        println "Test suite is starting $suite"
+    }
+
+    beforeTest { test ->
+        println "Single test is starting $test"
+    }
+
+    afterTest { test, result ->
+        println "Test $test is finished, result is $result"
+    }
+
+    afterSuite { suite, result ->
+        println "Suite $suite is finished with result - $result"
+    }
+}
+
+test.addTestListener(new MyTestListener())
+
+task integrationTest(type: Test) {//fixme doesn't work
+    include '**/*IntegTest.class'
+
+    testClassesDirs = sourceSets.integTest.output.classesDirs
+    classpath = sourceSets.integTest.runtimeClasspath
+
+    println(getTestClassesDirs().getAsPath())
+
+    reports {
+//        def htmlLocation = reports.html.getOutputLocation().get().toString() //todo Can specify where reports go
+//        def junitLocation = htmlLocation - 'test-results' + 'reports'
+//        html.outputLocation = file ("$htmlLocation/unit")
+//        junitXml.outputLocation = file ("$junitLocation/unit")
+    }
+}
+
+check.dependsOn integrationTest

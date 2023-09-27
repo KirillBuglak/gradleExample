@@ -1,0 +1,10 @@
+apply plugin: 'pmd'
+
+pmd {
+    consoleOutput = true
+//    toolVersion = "6.21.0"
+//    rulesMinimumPriority = 5
+//    ruleSets = ["category/java/errorprone.xml", "category/java/bestpractices.xml"]
+    ruleSetFiles = files("/home/k.buglak/IdeaProjects/gradleExample/config/pwd/pwd-base.xml")
+    threads = 4
+}
