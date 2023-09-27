@@ -1,0 +1,264 @@
+import groovy.swing.SwingBuilder
+import listeners.MyTaskGraphListener
+import models.Version
+import tasks.MyTask
+
+//----------------------CONFIG PHASE----------------------
+//plugins { //todo plugin is declared in root build file
+//    id 'war'
+//}
+
+//group = 'MyCompany'
+buildDir = 'out'
+
+war {
+    manifest {
+        attributes 'Main-Class': 'MyCompany.Application'
+    }
+}
+
+ext {
+    word = "Great"
+    verProps = file("/home/k.buglak/IdeaProjects/gradleExample/version.properties")
+    gradProps = file("/home/k.buglak/IdeaProjects/gradleExample/gradle.properties")
+    props = new Properties()
+}
+
+repositories { //We don't need reps when loading dependencies from local dirs
+//    mavenCentral() //Order matters todo declared in root project
+//    maven { todo Custom Repository
+//        name 'My repository'
+//        url 'http://my-repository.com/libs'
+//    }
+    mavenLocal()
+    gradlePluginPortal()
+    flatDir(dir: './downloadedLibs', name: 'Local Libs Dir')
+}
+
+configurations { //todo this may be put in init script
+    myCustomConfiguration {
+        setVisible(false)//todo disables config and its dependencies
+        fileTree(dir: './downloadedLibs', include: '*.jar')
+        description "My custom configuration"
+        extendsFrom implementation
+        exclude group: 'org.eclipse.jetty', module: 'jetty-jndi' //Excluding on configuration level
+        resolutionStrategy {
+            cacheDynamicVersionsFor 24, 'hours'//Checks for dependencies' change every 24 hours
+            cacheChangingModulesFor 0, 'seconds'//Don't cache SNAPSHOT versions at all
+        }
+    }
+    providedCompile{
+        resolutionStrategy {
+//            failOnVersionConflict()
+            force 'org.slf4j:slf4j-api:2.0.7'
+            force 'com.fasterxml.jackson.core:jackson-databind:2.9.5'
+        }
+    }
+}
+
+//configurations.providedCompile.resolutionStrategy {
+//    failOnVersionConflict()
+//}
+
+dependencies {
+    implementation gradleApi()
+
+//    myCustomConfiguration ('org.eclipse.jetty:jetty-runner:11.0.16'){ //todo we do not need to declare dependencies here cause we use local dir dependencies in config
+////        transitive false //Excludes all transitive dependencies
+//        exclude group: 'jakarta.transaction', module: 'jakarta.transaction-api' //Excluding on dependency level
+//    }
+    myCustomConfiguration ':spring-core:6.0.11' //todo declaring dependencies from local FlatDir repository
+
+    providedCompile 'top.jfunc.json:json-jackson:1.8.3',
+            'org.springframework.boot:spring-boot-starter-web:3.1.2',
+            'org.springframework:spring-web:6.0.11',
+            'org.springframework.boot:spring-boot:3.1.2',
+            'org.springframework.boot:spring-boot-starter:3.1.2',
+            'org.springframework:spring-core:6.0.11',
+            'org.springframework.boot:spring-boot-autoconfigure:3.1.2'
+    testImplementation platform('org.junit:junit-bom:5.9.2')
+    testImplementation('org.junit.jupiter:junit-jupiter') {
+        version {
+            strictly '5.9.2'
+        }
+    }
+}
+
+test {
+    useJUnitPlatform()
+}
+
+def antTask() {
+    ant.echo(message: anotherWord)
+}
+
+task settingVersion {
+    version = readVersion()
+}
+//-------------------HOOKS and LISTENERS------------------
+gradle.taskGraph.whenReady {
+    println "Tasks are ready"
+}
+gradle.settingsEvaluated {
+    println "Settings are set)" //todo doesn't work
+}
+gradle.taskGraph.addTaskExecutionGraphListener(new MyTaskGraphListener())
+//-------------------HOOKS and LISTENERS------------------
+//----------------------CONFIG PHASE----------------------
+//---------------------EXECUTION PHASE--------------------
+tasks.register('heyTask') {
+    doLast {
+        println("Hey")
+    }
+}
+
+tasks.register('newOne') {
+    doLast {
+        antTask()
+    }
+}
+
+
+3.times {
+    tasks.register("greatTask$it") {
+        doLast {
+            println(word)
+        }
+    }
+}
+
+greatTask0.dependsOn newOne
+greatTask2.dependsOn greatTask0, greatTask1
+
+tasks.register('groupTask') {
+    description("use this task to launch other examples")
+    dependsOn greatTask2
+    setGroup("custom tasks")
+}
+
+tasks.register('askForVersionChange') {
+    setGroup("custom tasks")
+    doLast {
+        new SwingBuilder().edt {
+            dialog(modal: true,
+                    title: "Version change",
+                    alwaysOnTop: true,
+                    resizable: false,
+                    locationRelativeTo: null,
+                    pack: true,
+                    show: true) {
+                vbox {
+                    label(text: "Do you want to change your version\n" +
+                            " new version/n")
+                    input = textField()
+                    input.setText(version.toString())
+                    button(defaultButton: true, text: 'OK', actionPerformed: {
+                        def ver = input.getText()
+                        if (ver != "n" && props.get('versionNumber') != ver) {
+                            version = ver
+                            rewritingVersionFile(ver)
+                        }
+                        dispose()
+                    })
+                }
+            }
+        }
+    }
+}
+
+tasks.register('printVersion') {
+//    inputs.file verProps
+    outputs.file verProps
+    description("use this task to print version")
+    dependsOn askForVersionChange
+    setGroup("custom tasks")
+    doLast {
+        logger.quiet("New Version - $version")
+    }
+}
+
+tasks.register('first') {
+    group('ruled')
+    println("first")
+    finalizedBy second
+}
+
+tasks.register('second') {
+    group('ruled')
+    println("second")
+}
+
+task myTaskImpl(type: MyTask) {
+    inpFile = gradProps
+    outFile = verProps
+    dependsOn askForVersionChange
+}
+
+task myZip(type: Zip) {
+    group "custom tasks"
+    from "."
+    include 'version.properties'
+    archiveFileName = "myZip.zip"
+    destinationDirectory = file(".")
+}
+
+task myCopy(type: Copy) {
+    group "custom tasks"
+    from "."
+    include 'version.properties'
+    into "./hey"
+}
+
+task copyLibs(type: Copy) {
+    group "custom tasks"
+    from configurations.myCustomConfiguration.asFileTree
+    into "./downloadedLibs"
+}
+
+tasks.register('getMyConfDeps') {
+    group "custom tasks"
+    doLast {
+        println(configurations.getByName('myCustomConfiguration').getAllDependencies().name)
+    }
+}
+//---------------------EXECUTION PHASE--------------------
+//-------------------------METHODS------------------------
+void rewritingVersionFile(String ver) {
+    ant.propertyfile(file: verProps) {
+        entry(key: 'versionNumber', type: 'string', operation: '=', value: ver)
+    }
+}
+
+Version readVersion() {
+    logger.quiet 'Reading the version file.'
+
+    Properties properties = getProperties()
+    new Version(properties.versionNumber.toString(), properties.description.toString())
+}
+
+Properties getProperties() {
+    verProps.withInputStream { s ->
+        props.load(s)
+    }
+    props
+}
+//-------------------------METHODS------------------------
+//--------------------------RULES-------------------------
+tasks.addRule("Pattern: <TaskName>Ruled: adds some functionality", { String taskName ->
+    if (taskName.endsWith('Ruled')) {
+        task(taskName) {
+            doLast {
+                tasks.getByName(taskName - 'Ruled')
+                println "Ruled"
+            }
+        }
+    }
+})
+//--------------------------RULES-------------------------
+//----------------------WRAPPER CONFIG--------------------
+//wrapper {
+//    gradleVersion '8.3'
+//    distributionUrl 'https://services.gradle.org/distributions/gradle-8.3-bin.zip'
+//    distributionPath 'wrapper/dists'
+//}
+//----------------------WRAPPER CONFIG--------------------

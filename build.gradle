@@ -1,0 +1,100 @@
+plugins {
+//    id 'java'
+//    id "org.gretty" version "4.1.0"
+    id 'my.plugin' version '2.0.0'
+    id "com.github.spotbugs" version "6.0.0-beta.3"
+    id "org.sonarqube" version "4.3.1.3277"
+}
+
+//apply from: 'plugin.gradle'
+apply plugin: 'java'
+
+allprojects {
+    apply plugin: 'idea'
+//    tasks.register("hello") {
+//        doLast{
+//            println(tasks.getByName('hello').project)
+//        }
+//    }
+}
+
+subprojects {
+    apply plugin: 'war'
+    apply from: "$rootDir/gradle/jacoco.gradle"
+    apply from: "$rootDir/gradle/checkstyle.gradle"
+    apply from: "$rootDir/gradle/pmd.gradle"
+//    apply from: "$rootDir/gradle/spotbugs.gradle"
+
+    group 'MyCompany'
+
+    repositories {
+        mavenCentral()
+    }
+
+    test.finalizedBy jacocoTestReport
+    jacocoTestReport.dependsOn test
+
+    tasks.register("hello") {
+        def projectName = tasks.getByName('hello').project.name
+        if (projectName != "dto") {
+            dependsOn ":dto:hello" //todo so dto task executes first
+            dependsOn ":core:firstRuled" //todo can depend on other tasks too
+        }
+        doLast {
+            println(projectName)
+        }
+    }
+}
+
+spotbugs {
+    reportsDir = file("$buildDir/spotbugs")
+}
+
+spotbugsMain {
+    reports {
+        html {
+            required = true
+            outputLocation = file("$buildDir/reports/spotbugs/main/spotbugs.html")
+            stylesheet = 'fancy-hist.xsl'
+        }
+    }
+}
+
+sonar {
+    properties {
+//        property "sonar.host.url", "http://127.0.0.1:6060"
+    }
+}
+
+project(':controllers') { //todo compiles :dto before :controllers -> put to :controllers build file
+//    dependencies {
+//        implementation project(':dto')
+//    }
+}
+
+group 'MyCompany'
+
+repositories {
+    mavenCentral()
+    mavenLocal()
+}
+
+dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.9.2'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.9.2'
+}
+
+subprojects {
+
+}
+
+test {
+    useJUnitPlatform()
+}
+//----------------------WRAPPER CONFIG--------------------
+wrapper {
+    gradleVersion '8.3'
+    distributionUrl 'https://services.gradle.org/distributions/gradle-8.3-bin.zip'
+    distributionPath 'wrapper/dists'
+}
+//----------------------WRAPPER CONFIG--------------------
